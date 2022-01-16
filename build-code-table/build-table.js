@@ -50,6 +50,3 @@ const encode = tree => {
 
 const codingTable = encode(freqArray[0][0])
 console.log(JSON.stringify(codingTable, null, 4))
-
-// console.log(encode(freqArray[0][0]))
-
