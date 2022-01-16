@@ -16,7 +16,6 @@ const freqKeys = Object.keys(freqTable)
 // The frequencies array
 let freqArray = freqKeys.map(x => [x, freqTable[x]])
 freqArray.sort((a,b) => b[1]-a[1])
-console.log(freqArray)
 
 // If not we need to add the missing byte values
 assert(freqArray.length == 256)
@@ -49,4 +48,8 @@ const encode = tree => {
     return encode0.concat(encode1)
 }  // encode
 
-console.log(encode(freqArray[0][0]))
+const codingTable = encode(freqArray[0][0])
+console.log(JSON.stringify(codingTable, null, 4))
+
+// console.log(encode(freqArray[0][0]))
+
