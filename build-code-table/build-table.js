@@ -49,4 +49,29 @@ const encode = tree => {
 }  // encode
 
 const codingTable = encode(freqArray[0][0])
-console.log(JSON.stringify(codingTable, null, 4))
+// sort by encoded symbol length
+   .sort((a,b) => a[0].length-b[0].length)   
+
+   // Create the compression table
+let compressTable = {}
+codingTable.map(x => compressTable[x[1]] = x[0])
+fs.writeFileSync('compressTable.json', 
+    JSON.stringify(compressTable, null, 2))
+
+
+// Figure the minimum and maximum symbol lengths
+const minLength = codingTable[0][0].length
+const maxLength = codingTable[codingTable.length-1][0].length
+console.log(`Symbol size: ${minLength}-${maxLength}`)
+
+
+// If we need more than 30 bytes we can't use a uint256
+// (we use one byte for the symbol length, and one for the value being
+// encoded)
+assert(maxLength <= 256-16)
+// <in the notes explain why this isn't an issue, but we still need to
+// check it>
+
+const res = codingTable.map(x => `${x[1]}`)
+
+console.log(res)

@@ -2,15 +2,8 @@
 
 const fs = require('fs')
 
-let compressTable = {}
-
-// Create the compression table based on the build-table.js results
-const createCompressTable = () => {
-    const buf = fs.readFileSync(`build-code-table/codingTable.json`)
-    const srcTable = JSON.parse(buf.toString())
-
-    srcTable.map(x => compressTable[x[1]] = x[0])
-}
+const compressTable = JSON.parse(
+    fs.readFileSync(`build-code-table/compressTable.json`).toString())
 
 
 // Compress a contract
@@ -41,7 +34,6 @@ const compressContract = async name => {
 
 
 async function main() {
-  await createCompressTable()
   const send2Chain = await compressContract("Greeter")
 
   console.log(send2Chain)
