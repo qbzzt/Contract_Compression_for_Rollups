@@ -72,6 +72,9 @@ assert(maxLength <= 256-16)
 // <in the notes explain why this isn't an issue, but we still need to
 // check it>
 
-const res = codingTable.map(x => `${x[1]}`)
+const res = codingTable.map(x =>   (BigInt(x[0].length) << 248n) +
+                                   (BigInt(parseInt(x[1],16)) << 240n) +
+                                   (BigInt(parseInt(x[0], 2)))
+                                   )
 
-console.log(res)
+console.log(res.map(x => x.toString(16)))
