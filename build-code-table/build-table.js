@@ -1,6 +1,20 @@
 #! /usr/local/bin/node
 
-const { assert } = require("console")
+// Word size
+const wordSize = 32
+
+// Bits to identify an uncompressed symbol
+const origSymbolLengthBits = 8
+
+// Bits to write the length of a compressed symbol
+const compressedSymbolLengthBits = 4
+
+// The maximum number of bits we can support in an encoded symbol
+const maxEncodedBits = wordSize - 
+  (origSymbolLengthBits + compressedSymbolLengthBits)
+
+
+
 const fs = require("fs")
 const contractData = fs.readFileSync(0).toString() // STDIN_FILENO = 0
 const contractBytes = contractData.match(/.{2}/g)
@@ -17,8 +31,13 @@ const freqKeys = Object.keys(freqTable)
 let freqArray = freqKeys.map(x => [x, freqTable[x]])
 freqArray.sort((a,b) => b[1]-a[1])
 
-// If not we need to add the missing byte values
-assert(freqArray.length == 256)
+// Make sure all the possible symbols are covered
+if (freqArray.length != 1<<origSymbolLengthBits) {
+    console.error(`The frequency array should have ${
+        1<<origSymbolLengthBits} symbols, but instead it has ${
+        freqArray.length} symbols.`)
+    process.exit(-1)
+}
 
 // The Huffman coding algorithm
 while(freqArray.length > 1) {
@@ -52,7 +71,7 @@ const codingTable = encode(freqArray[0][0])
 // sort by encoded symbol length
    .sort((a,b) => a[0].length-b[0].length)   
 
-   // Create the compression table
+// Create the compression table
 let compressTable = {}
 codingTable.map(x => compressTable[x[1]] = x[0])
 fs.writeFileSync('compressTable.json', 
@@ -62,19 +81,34 @@ fs.writeFileSync('compressTable.json',
 // Figure the minimum and maximum symbol lengths
 const minLength = codingTable[0][0].length
 const maxLength = codingTable[codingTable.length-1][0].length
-console.log(`Symbol size: ${minLength}-${maxLength}`)
 
 
-// If we need more than 30 bytes we can't use a uint256
-// (we use one byte for the symbol length, and one for the value being
-// encoded)
-assert(maxLength <= 256-16)
-// <in the notes explain why this isn't an issue, but we still need to
-// check it>
+if (maxLength > (1<<compressedSymbolLengthBits)-1) {
+    console.error(`Maximum symbol length is ${
+        maxLength}, this length cannot be written in just ${
+        compressedSymbolLengthBits} bits`)
+    process.exit(-1)
+}
 
-const res = codingTable.map(x =>   (BigInt(x[0].length) << 248n) +
-                                   (BigInt(parseInt(x[1],16)) << 240n) +
-                                   (BigInt(parseInt(x[0], 2)))
+if (maxLength > maxEncodedBits) {
+    console.error(`We have ${
+        maxEncodedBits} bits for each symbol. The longest symbol is ${
+        maxLength} bits. It doesn't fit.`)
+    process.exit(-1)
+}
+
+// Bit locations in the decompression table
+const origSymbolLengthOffset = wordSize - origSymbolLengthBits
+const compressedSymbolLengthOffset = 
+         origSymbolLengthOffset - compressedSymbolLengthBits
+
+
+const decompressTable = codingTable.map(x =>   
+    (BigInt(x[0].length) << BigInt(compressedSymbolLengthOffset)) |
+    (BigInt(parseInt(x[1],16)) << BigInt(origSymbolLengthOffset)) |
+    (BigInt(parseInt(x[0], 2)) << (BigInt(compressedSymbolLengthOffset)-BigInt(x[0].length)) )
                                    )
 
-console.log(res.map(x => x.toString(16)))
+const num2Hex = x =>  '0x'+x.toString(16).padStart(wordSize/4, "0")
+
+console.log(decompressTable.map(num2Hex))
