@@ -14,6 +14,21 @@ const maxEncodedBits = wordSize -
   (origSymbolLengthBits + compressedSymbolLengthBits)
 
 
+// ****** NEW CODE
+
+// For simplicity require the word size to be an even number of bytes
+if (wordSize % 8 != 0) {
+    console.error(`Word size should be divisible by 8, not ${wordSize}`)
+    process.exit(-1)
+}
+
+// The EVM doesn't support uints with more than 256 bits
+if (wordSize > 256) {
+    console.error(`Word size should fit in a 256 bit word, ${
+        wordSize} does not`)
+    process.exit(-1)
+}
+
 
 const fs = require("fs")
 const contractData = fs.readFileSync(0).toString() // STDIN_FILENO = 0
@@ -71,11 +86,17 @@ const codingTable = encode(freqArray[0][0])
 // sort by encoded symbol length
    .sort((a,b) => a[0].length-b[0].length)   
 
+
+
 // Create the compression table
 let compressTable = {}
 codingTable.map(x => compressTable[x[1]] = x[0])
 fs.writeFileSync('compressTable.json', 
     JSON.stringify(compressTable, null, 2))
+
+
+
+// ****** NEW CODE
 
 
 // Figure the minimum and maximum symbol lengths
@@ -98,17 +119,32 @@ if (maxLength > maxEncodedBits) {
 }
 
 // Bit locations in the decompression table
-const origSymbolLengthOffset = wordSize - origSymbolLengthBits
+const origSymbolOffset = wordSize - origSymbolLengthBits
 const compressedSymbolLengthOffset = 
-         origSymbolLengthOffset - compressedSymbolLengthBits
+         origSymbolOffset - compressedSymbolLengthBits
 
 
 const decompressTable = codingTable.map(x =>   
     (BigInt(x[0].length) << BigInt(compressedSymbolLengthOffset)) |
-    (BigInt(parseInt(x[1],16)) << BigInt(origSymbolLengthOffset)) |
+    (BigInt(parseInt(x[1],16)) << BigInt(origSymbolOffset)) |
     (BigInt(parseInt(x[0], 2)) << (BigInt(compressedSymbolLengthOffset)-BigInt(x[0].length)) )
                                    )
+// It isn't necessary to left justify the numbers, but it makes the
+// code more readable.                                  
+const num2Hex = x =>  '     0x'+x.toString(16).padStart(wordSize/4, "0")+',\n'
+const solidityList = decompressTable.map(num2Hex)
+      .reduce((a,b) => a+b).slice(0,-2)     // Remove the last comma
 
-const num2Hex = x =>  '0x'+x.toString(16).padStart(wordSize/4, "0")
+const solidityCode = `
+    uint${wordSize}[${decompressTable.length}] decompressTable = [
+${solidityList}
+    ];
 
-console.log(decompressTable.map(num2Hex))
+    uint minSymbolLength = ${minLength};
+    uint maxSymbolLength = ${maxLength};
+    uint compressedSymbolLengthOffset = ${compressedSymbolLengthOffset};
+    uint origSymbolOffset = ${origSymbolOffset};
+    uint wordSize = ${wordSize};
+`
+
+console.log(solidityCode)
