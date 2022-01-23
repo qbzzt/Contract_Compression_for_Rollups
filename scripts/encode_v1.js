@@ -36,7 +36,7 @@ const compressContract = async name => {
 async function main() {
   const send2Chain = await compressContract("Greeter")
 
-  console.log(send2Chain)
+  console.log(`first ten bytes: ${send2Chain.slice(0,20)}`)
 }  // main
 
 main()
