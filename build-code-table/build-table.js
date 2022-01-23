@@ -14,7 +14,6 @@ const maxEncodedBits = wordSize -
   (origSymbolLengthBits + compressedSymbolLengthBits)
 
 
-// ****** NEW CODE
 
 // For simplicity require the word size to be an even number of bytes
 if (wordSize % 8 != 0) {
@@ -96,7 +95,6 @@ fs.writeFileSync('compressTable.json',
 
 
 
-// ****** NEW CODE
 
 
 // Figure the minimum and maximum symbol lengths
@@ -129,11 +127,11 @@ const decompressTable = codingTable.map(x =>
     (BigInt(parseInt(x[1],16)) << BigInt(origSymbolOffset)) |
     (BigInt(parseInt(x[0], 2)) << (BigInt(compressedSymbolLengthOffset)-BigInt(x[0].length)) )
                                    )
-// It isn't necessary to left justify the numbers, but it makes the
-// code more readable.                                  
-const num2Hex = x =>  '     0x'+x.toString(16).padStart(wordSize/4, "0")+',\n'
+// It isn't necessary to left justify the numbers and indent them
+// but it makes the code more readable.                                       
+const num2Hex = x =>  '     0x'+x.toString(16).padStart(wordSize/4, "0")
 const solidityList = decompressTable.map(num2Hex)
-      .reduce((a,b) => a+b).slice(0,-2)     // Remove the last comma
+      .reduce((a,b) => a+",\n"+b)
 
 const solidityCode = `
     uint${wordSize}[${decompressTable.length}] decompressTable = [
@@ -147,4 +145,4 @@ ${solidityList}
     uint wordSize = ${wordSize};
 `
 
-console.log(solidityCode)
+fs.writeFileSync('params.sol', solidityCode)
