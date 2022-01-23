@@ -1,4 +1,12 @@
+//SPDX-License-Identifier: Unlicense
+pragma solidity ^0.8.0;
 
+import "hardhat/console.sol";
+
+
+contract DecompressingDeployer {
+
+    // This is a copy and paste from build-code-table/params.sol 
     uint32[256] decompressTable = [
      0x003a0000,
      0x61420000,
@@ -263,3 +271,55 @@
     uint constant compressedSymbolLengthOffset = 20;
     uint constant origSymbolOffset = 24;
     uint constant wordSize = 32;
+
+    // Values calculated from the parameters
+    uint constant originalSymbolMask = ~((1 << origSymbolOffset) -1);
+    uint constant compressedSymbolLengthMask = 
+        ~((1 << compressedSymbolLengthOffset) -1) ^ 
+        originalSymbolMask;  
+    uint constant compressedSymbolMask =  (1 << compressedSymbolLengthOffset) - 1;          
+
+    function _getOrigSymbol(
+        uint index_
+    ) internal view returns (uint) {
+        return (decompressTable[index_] & originalSymbolMask) 
+            >> origSymbolOffset;
+    }   
+
+    function _getCompressedSymbolLength(
+        uint index_
+    ) internal view returns (uint) {
+        return (decompressTable[index_] & compressedSymbolLengthMask) 
+            >> compressedSymbolLengthOffset;
+    }   
+
+    function _getCompressedSymbol(
+        uint index_
+    ) internal view returns (uint) {
+        return decompressTable[index_] & compressedSymbolMask;
+    }   
+
+    function _getBit(
+        uint bitNum_,
+        bytes memory compressedData_
+    ) internal view returns (uint) {
+        uint byteNum = bitNum_ / 8;
+        uint bitInByte = bitNum_ - byteNum*8;
+        uint mask = 1 << (8-bitInByte);   // bit0 is more significant than bit7
+
+        return uint(compressedData_[byteNum]);
+    }   // function _getBit
+
+
+    // For debugging purposes, run some tests on the code.
+    // Can be commented out for production.
+    function sanityChecks() public view {
+        console.log("Line #3, original symbol %x", _getOrigSymbol(3));
+        console.log("Line #3, compressed symbol length %x", _getCompressedSymbolLength(3));
+        console.log("Line #3, compressed symbol %x", _getCompressedSymbol(3));                
+
+        console.log("Bit: %d", _getBit(2, "ABCDEFG"));
+    }
+    
+
+}    // contract DecompressingDeployer

@@ -138,11 +138,11 @@ const solidityCode = `
 ${solidityList}
     ];
 
-    uint minSymbolLength = ${minLength};
-    uint maxSymbolLength = ${maxLength};
-    uint compressedSymbolLengthOffset = ${compressedSymbolLengthOffset};
-    uint origSymbolOffset = ${origSymbolOffset};
-    uint wordSize = ${wordSize};
+    uint constant minSymbolLength = ${minLength};
+    uint constant maxSymbolLength = ${maxLength};
+    uint constant compressedSymbolLengthOffset = ${compressedSymbolLengthOffset};
+    uint constant origSymbolOffset = ${origSymbolOffset};
+    uint constant wordSize = ${wordSize};
 `
 
 fs.writeFileSync('params.sol', solidityCode)
