@@ -279,7 +279,7 @@ contract DecompressingDeployer {
         originalSymbolMask;  
     uint constant compressedSymbolMask =  (1 << compressedSymbolLengthOffset) - 1;          
 
-    function _getOrigSymbol(
+    function _getOriginalSymbol(
         uint index_
     ) internal view returns (uint) {
         return (decompressTable[index_] & originalSymbolMask) 
@@ -305,20 +305,102 @@ contract DecompressingDeployer {
     ) internal view returns (uint) {
         uint byteNum = bitNum_ / 8;
         uint bitInByte = bitNum_ - byteNum*8;
-        uint mask = 1 << (8-bitInByte);   // bit0 is more significant than bit7
+        uint mask = 1 << (7-bitInByte);   // bit0 is more significant than bit7
 
-        return uint(compressedData_[byteNum]);
+        require (byteNum < compressedData_.length, "Invalid bit number");
+
+        return (uint8(compressedData_[byteNum]) & mask)/mask;
     }   // function _getBit
+
+    // Look for a symbol in decompressTable, return the symbol or 0xFFFF if you can't
+    // find it (meaning it's the prefix for a longer symbol)
+    function _findSymbol(
+        uint symbol_, 
+        uint length_
+    ) public view returns (uint) {
+        uint lineNum = 0;    // Start from the first line of the array
+
+        // The symbol, but left justified
+        uint symbol =  symbol_ <<  (compressedSymbolLengthOffset-length_);   
+        
+        
+        // If we find an answer we return from inside this loop. Otherwise,
+        // we go over the entire array and then return.
+        while (lineNum < decompressTable.length) {
+            uint lineLength = _getCompressedSymbolLength(lineNum);
+
+            // The decompression table is sorted by symbol length. If we are beyond
+            // the current length, symbol_ is not really a symbol but merely a prefix
+            if (lineLength > length_) {
+                return 0xFFFF;
+            } 
+
+            // If they are equal, this might be the right line
+            if (lineLength == length_) {
+                if (_getCompressedSymbol(lineNum) == symbol) {
+                    return _getOriginalSymbol(lineNum);
+                }
+            }    // if (lineLength == length_)
+
+            // If lineLength < length_ this is not the right line, go to the next one
+
+            lineNum = lineNum+1;
+        }    // while (lineNum < decompressTable.length) 
+
+        // If we get here, it's not found
+        return 0xFFFF;
+
+    }    // function _findSymbol
+
+    // This function is public because it might be useful for other
+    // contracts that deal with contracts as data.
+    function decompress(
+        bytes memory compressedData_
+    ) public view returns (bytes memory) {
+        uint nextBit = 0;
+
+        while(nextBit < compressedData_.length*8) {
+            uint symbolRead = 0;
+            uint bitsRead = 0;
+
+            // Read the shortest possible symbol
+            while ((bitsRead < minSymbolLength) && (nextBit < compressedData_.length*8)) {
+                // Read one more bit
+                symbolRead = symbolRead << 1 | _getBit(nextBit, compressedData_);
+                nextBit = nextBit + 1;
+                bitsRead = bitsRead + 1;
+            }    // while bitsRead < minSymbolLength
+
+            uint symbol = _findSymbol(symbolRead, bitsRead);
+            while ((symbol == 0xFFFF) && (nextBit < compressedData_.length*8)) {
+                symbolRead = symbolRead << 1 | _getBit(nextBit, compressedData_);
+                nextBit = nextBit + 1;
+                bitsRead = bitsRead + 1;                
+                symbol = _findSymbol(symbolRead, bitsRead);
+            }
+            console.log(symbol, symbolRead, bitsRead-1, nextBit);
+        
+        }    // while bitNum < compressedData_.length*8
+
+
+        return "QQQ";
+    }  // function _decompress
+
+
+
+
 
 
     // For debugging purposes, run some tests on the code.
     // Can be commented out for production.
-    function sanityChecks() public view {
-        console.log("Line #3, original symbol %x", _getOrigSymbol(3));
-        console.log("Line #3, compressed symbol length %x", _getCompressedSymbolLength(3));
-        console.log("Line #3, compressed symbol %x", _getCompressedSymbol(3));                
-
-        console.log("Bit: %d", _getBit(2, "ABCDEFG"));
+    function sanityChecks() public view { 
+        uint x=0xc562fdc09422db6021ca; 
+        bytes memory sample = new bytes(4);
+        sample[0] = 0xC5;
+        sample[1] = 0x62;
+        sample[2] = 0xFD;
+        sample[3] = 0xC0;
+        console.log(decompress(sample).length);
     }
     
 
