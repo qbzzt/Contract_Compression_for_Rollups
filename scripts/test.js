@@ -18,9 +18,13 @@ async function main() {
   const deployer = await Deployer.deploy()
 
   await deployer.deployed()
-  await deployer.sanityChecks()
+  const tx1 = await deployer.deployCompressed([0xC5, 0x62, 0xFD, 0xC0])
+//  const tx1 = await deployer.test([0xC5, 0x62, 0xFD, 0xC0])
+  const receipt1 = await tx1.wait()
 
-  console.log("Deployer deployed to:", deployer.address);
+  console.log("Deployer deployed to:", deployer.address)
+  console.log(`Results: ${receipt1.events[0].args}`)
+  console.log(tx1)
 }
 
 // We recommend this pattern to be able to use async/await everywhere

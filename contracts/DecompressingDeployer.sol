@@ -279,6 +279,11 @@ contract DecompressingDeployer {
         originalSymbolMask;  
     uint constant compressedSymbolMask =  (1 << compressedSymbolLengthOffset) - 1;          
 
+    // Inform an external account that called us, and the rest of the
+    // world, what is the address of the new contract
+    event ContractDeployed(address _addr);
+
+
     function _getOriginalSymbol(
         uint index_
     ) internal view returns (uint) {
@@ -299,10 +304,11 @@ contract DecompressingDeployer {
         return decompressTable[index_] & compressedSymbolMask;
     }   
 
+
     function _getBit(
         uint bitNum_,
-        bytes memory compressedData_
-    ) internal view returns (uint) {
+        bytes calldata /* uint8[] memory */ compressedData_
+    ) internal pure returns (uint) {
         uint byteNum = bitNum_ / 8;
         uint bitInByte = bitNum_ - byteNum*8;
         uint mask = 1 << (7-bitInByte);   // bit0 is more significant than bit7
@@ -352,19 +358,28 @@ contract DecompressingDeployer {
 
     }    // function _findSymbol
 
-    // This function is public because it might be useful for other
-    // contracts that deal with contracts as data.
-    function decompress(
-        bytes memory compressedData_
-    ) public view returns (bytes memory) {
-        uint nextBit = 0;
 
-        while(nextBit < compressedData_.length*8) {
+
+    // This function is public because it might be useful for other
+    // contracts that deal with contracts as data (only contracts because
+    // our compression table won't work well for anything else)
+    function decompress(
+        bytes calldata /* uint8[] memory */ compressedData_,
+        uint compressedDataLength_
+    ) public view returns (
+        uint8[] memory result,
+        uint resultLength
+    ) {
+        uint nextBit = 0;
+        result = new uint8[](24*1024);
+        resultLength = 0;
+
+        while(nextBit < compressedDataLength_*8) {
             uint symbolRead = 0;
             uint bitsRead = 0;
 
             // Read the shortest possible symbol
-            while ((bitsRead < minSymbolLength) && (nextBit < compressedData_.length*8)) {
+            while ((bitsRead < minSymbolLength) && (nextBit < compressedDataLength_*8)) {
                 // Read one more bit
                 symbolRead = symbolRead << 1 | _getBit(nextBit, compressedData_);
                 nextBit = nextBit + 1;
@@ -372,36 +387,62 @@ contract DecompressingDeployer {
             }    // while bitsRead < minSymbolLength
 
             uint symbol = _findSymbol(symbolRead, bitsRead);
-            while ((symbol == 0xFFFF) && (nextBit < compressedData_.length*8)) {
+            while ((symbol == 0xFFFF) && (nextBit < compressedDataLength_*8)) {
                 symbolRead = symbolRead << 1 | _getBit(nextBit, compressedData_);
                 nextBit = nextBit + 1;
                 bitsRead = bitsRead + 1;                
                 symbol = _findSymbol(symbolRead, bitsRead);
+            }        
+            if (symbol != 0xFFFF) {
+                result[resultLength++] = uint8(symbol);
             }
-            console.log(symbol, symbolRead, bitsRead-1, nextBit);
-        
         }    // while bitNum < compressedData_.length*8
 
-
-        return "QQQ";
     }  // function _decompress
 
+/*
+    function test(bytes calldata param_, uint len_) public returns (address) {
+        emit ContractDeployed(address(0));
 
+        uint8[] memory result;
+        uint resultLength;
 
+        (result, resultLength) = decompress(param_, len_);
+        for (uint i=0; i<resultLength; i++) {
+            console.log(i, result[i]);
+        }
 
-
-
-    // For debugging purposes, run some tests on the code.
-    // Can be commented out for production.
-    function sanityChecks() public view { 
-        uint x=0xc562fdc09422db6021ca; 
-        bytes memory sample = new bytes(4);
-        sample[0] = 0xC5;
-        sample[1] = 0x62;
-        sample[2] = 0xFD;
-        sample[3] = 0xC0;
-        console.log(decompress(sample).length);
+        return(address(0));
     }
-    
+*/
 
+    // Decompress a contract and deploy it, return the address
+    function deployCompressed(
+        bytes calldata compressed_
+    ) public returns (
+        address
+    )  {
+        uint8[] memory result;
+        uint resultLength;
+
+        (result, resultLength) = decompress(compressed_, compressed_.length);
+        console.log(resultLength);
+        console.log("[");
+        for(uint i=0; i<resultLength; i++) {
+            console.log(result[i], ",");           
+        }
+        console.log("]");
+        address addr;
+        assembly {
+            addr := create(0, result, resultLength)
+        }
+        console.log("New contract at ", addr); 
+
+        // Inform an external account that called us, and the rest of the
+        // world, what is the address of the new contract
+        emit ContractDeployed(addr);
+
+        return (addr);
+    }   // function deployCompressed
+    
 }    // contract DecompressingDeployer
