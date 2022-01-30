@@ -392,6 +392,9 @@ contract DecompressingDeployer {
                 nextBit = nextBit + 1;
                 bitsRead = bitsRead + 1;                
                 symbol = _findSymbol(symbolRead, bitsRead);
+                if (bitsRead > maxSymbolLength) {
+                    symbol = 0xFFFF;
+                }
             }        
             if (symbol != 0xFFFF) {
                 result[resultLength++] = uint8(symbol);
@@ -400,21 +403,7 @@ contract DecompressingDeployer {
 
     }  // function _decompress
 
-/*
-    function test(bytes calldata param_, uint len_) public returns (address) {
-        emit ContractDeployed(address(0));
 
-        uint8[] memory result;
-        uint resultLength;
-
-        (result, resultLength) = decompress(param_, len_);
-        for (uint i=0; i<resultLength; i++) {
-            console.log(i, result[i]);
-        }
-
-        return(address(0));
-    }
-*/
 
     // Decompress a contract and deploy it, return the address
     function deployCompressed(
@@ -426,17 +415,10 @@ contract DecompressingDeployer {
         uint resultLength;
 
         (result, resultLength) = decompress(compressed_, compressed_.length);
-        console.log(resultLength);
-        console.log("[");
-        for(uint i=0; i<resultLength; i++) {
-            console.log(result[i], ",");           
-        }
-        console.log("]");
         address addr;
         assembly {
             addr := create(0, result, resultLength)
         }
-        console.log("New contract at ", addr); 
 
         // Inform an external account that called us, and the rest of the
         // world, what is the address of the new contract
