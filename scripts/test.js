@@ -197,8 +197,7 @@ const compressedGreeter = [
   56,
   93,
   198,
-  49,
-  138,
+  49,  138,
   219,
   199,
   131,
@@ -2247,13 +2246,17 @@ async function main() {
   await deployer.deployed()
   console.log(`Deployer deployed to: ${deployer.address}`)
 
-  const gas = await deployer.estimateGas.deployCompressed(compressedGreeter)
+  const len=256
+  const tx = await deployer.populateTransaction.deployCompressed(compressedGreeter.slice(0,len))
+  console.log(tx)
+
+  const gas = await deployer.estimateGas.deployCompressed(compressedGreeter.slice(0,len))
 
   console.log(`Gas estimated: ${gas}`)
 
   const tx1 = await deployer.deployCompressed(
-    compressedGreeter,
-    {gasLimit: 1000000000}
+    compressedGreeter.slice(0,len),
+    {gasLimit: gas}
   )
   console.log(`Deploy transaction sent`)
   const receipt1 = await tx1.wait()
